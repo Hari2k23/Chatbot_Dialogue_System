@@ -1,39 +1,38 @@
-import joblib
-import pandas as pd
-from flask import Flask, request, jsonify
-
-# Load the trained model and encoders
-model = joblib.load("hotel_booking_model.pkl")
-label_encoders = joblib.load("label_encoders.pkl")
+from flask import Flask, render_template, request, jsonify
+import joblib  # For loading the chatbot model
+import pandas as pd  # If needed for processing
+import random  # For simple responses (replace with ML model if available)
 
 app = Flask(__name__)
 
+# Load your trained chatbot model (modify as needed)
+try:
+    model = joblib.load("chatbot_model.pkl")  # Update with your actual model file
+except:
+    model = None  # Handle case where the model is not found
+
+# Example response function (Replace with your model's response logic)
+def get_chatbot_response(user_input):
+    responses = ["Hello! How can I help you?", "I'm here to assist you.", "Tell me more about your query."]
+    return random.choice(responses)
+
+# Serve the HTML page
 @app.route("/")
 def home():
-    return "Hotel Booking Prediction API is running!"
+    return render_template("index.html")
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    try:
-        # Get JSON data from request
-        data = request.json
+# Handle chatbot requests
+@app.route("/chat", methods=["POST"])
+def chat():
+    user_message = request.json.get("message", "")
+    
+    if model:
+        # If using an ML model, process input and generate response
+        response = model.predict([user_message])[0]
+    else:
+        response = get_chatbot_response(user_message)
 
-        # Convert data to DataFrame
-        df = pd.DataFrame([data])
-
-        # Encode categorical features
-        categorical_cols = ['type_of_meal_plan', 'room_type_reserved', 'market_segment_type']
-        for col in categorical_cols:
-            if col in df:
-                df[col] = label_encoders[col].transform(df[col])
-
-        # Make a prediction
-        prediction = model.predict(df)[0]
-        
-        return jsonify({"prediction": "Canceled" if prediction == 1 else "Not Canceled"})
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
+    return jsonify({"response": response})
 
 if __name__ == "__main__":
     app.run(debug=True)
