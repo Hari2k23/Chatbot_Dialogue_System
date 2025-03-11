@@ -3,46 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chatbot</title>
+    <title>Hotel Chatbot</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f4; text-align: center; }
-        .chat-container { width: 400px; margin: 20px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .chat-box { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #fafafa; }
-        .user-msg { text-align: right; color: blue; }
-        .bot-msg { text-align: left; color: green; }
-        input { width: 80%; padding: 10px; margin-top: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        button { padding: 10px 15px; margin-top: 10px; border: none; background: blue; color: white; border-radius: 5px; cursor: pointer; }
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #chatbox { width: 50%; margin: auto; height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        input { width: 50%; padding: 10px; margin-top: 10px; }
+        button { padding: 10px; }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <h2>Chatbot</h2>
-        <div class="chat-box" id="chat-box"></div>
-        <input type="text" id="user-input" placeholder="Type your message..." />
-        <button onclick="sendMessage()">Send</button>
-    </div>
+    <h2>Hotel Booking Chatbot</h2>
+    <div id="chatbox"></div>
+    <input type="text" id="userInput" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
 
     <script>
-        function sendMessage() {
-            let userInput = document.getElementById("user-input").value;
-            let chatBox = document.getElementById("chat-box");
-
-            if (userInput.trim() === "") return;
-
-            chatBox.innerHTML += `<p class='user-msg'><b>You:</b> ${userInput}</p>`;
-            document.getElementById("user-input").value = "";
-
-            fetch("/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: userInput })
-            })
-            .then(response => response.json())
-            .then(data => {
-                chatBox.innerHTML += `<p class='bot-msg'><b>Bot:</b> ${data.response}</p>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
+        document.addEventListener("DOMContentLoaded", function() {
+            const chatBox = document.getElementById("chatbox");  // Fix ID name
+            const userInput = document.getElementById("userInput");  // Fix ID name
+            const sendButton = document.querySelector("button");  // Select button correctly
+    
+            sendButton.addEventListener("click", function() {
+                sendMessage();
             });
-        }
+    
+            function sendMessage() {
+                const userMessage = userInput.value.trim();
+                if (userMessage === "") return;
+    
+                // Display user message
+                chatBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
+                userInput.value = "";
+    
+                // Send message to Flask backend
+                fetch("/chat", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message: userMessage })  // Send JSON data
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Received response:", data); // Debugging
+                    if (data.bot_response) {
+                        chatBox.innerHTML += `<p><strong>Bot:</strong> ${data.bot_response}</p>`;
+                    } else {
+                        chatBox.innerHTML += `<p><strong>Bot:</strong> Error in response</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    chatBox.innerHTML += `<p><strong>Bot:</strong> Failed to get response.</p>`;
+                });
+            }
+        });
     </script>
+    
+    
 </body>
 </html>

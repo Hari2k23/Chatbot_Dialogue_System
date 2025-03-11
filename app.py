@@ -1,38 +1,72 @@
 from flask import Flask, render_template, request, jsonify
-import joblib  # For loading the chatbot model
-import pandas as pd  # If needed for processing
-import random  # For simple responses (replace with ML model if available)
+import pandas as pd
+import re
+import random
 
 app = Flask(__name__)
 
-# Load your trained chatbot model (modify as needed)
-try:
-    model = joblib.load("chatbot_model.pkl")  # Update with your actual model file
-except:
-    model = None  # Handle case where the model is not found
+# Load the dataset
+df = pd.read_csv("Hotel Reservations.csv")
 
-# Example response function (Replace with your model's response logic)
-def get_chatbot_response(user_input):
-    responses = ["Hello! How can I help you?", "I'm here to assist you.", "Tell me more about your query."]
-    return random.choice(responses)
+# Convert all column names to lowercase to avoid case mismatch errors
+df.columns = df.columns.str.lower()
 
-# Serve the HTML page
+# Print column names to verify (optional debug step)
+print("Column names in dataset:", df.columns)
+
+# Sample general responses
+general_responses = [
+    "I'm here to help with hotel bookings! Ask me anything.",
+    "Can I help you find a hotel?",
+    "Tell me your travel details, and I'll find the best hotel for you!"
+]
+
 @app.route("/")
 def home():
     return render_template("index.html")
 
-# Handle chatbot requests
 @app.route("/chat", methods=["POST"])
 def chat():
-    user_message = request.json.get("message", "")
-    
-    if model:
-        # If using an ML model, process input and generate response
-        response = model.predict([user_message])[0]
-    else:
-        response = get_chatbot_response(user_message)
+    # Extract JSON data
+    data = request.get_json()
 
-    return jsonify({"response": response})
+    if not data or "message" not in data:
+        return jsonify({"error": "Message key missing"}), 400
+
+    user_message = data["message"].strip().lower()
+
+    # 1️⃣ Handle Booking Start
+    if "book hotel" in user_message:
+        return jsonify({"bot_response": "How many adults and kids are staying? Example: '2 adults, 1 kid'."})
+
+    # 2️⃣ Extract adults and children count from user input
+    match = re.search(r"(\d+)\s*adults?.*?(\d+)?\s*kid", user_message)
+    if match:
+        try:
+            adults = int(match.group(1))
+            kids = int(match.group(2)) if match.group(2) else 0  # Handle missing kids count
+
+            # Ensure correct column names
+            adult_col = "no_of_adults"
+            kid_col = "no_of_children"
+            status_col = "booking_status"  # 'Confirmed' means available in dataset
+
+            # Check room availability
+            available_rooms = df[
+                (df[adult_col] >= adults) & 
+                (df[kid_col] >= kids) & 
+                (df[status_col] == "Confirmed")
+            ]
+
+            if not available_rooms.empty:
+                return jsonify({"bot_response": f"Rooms are available for {adults} adults and {kids} kids!"})
+            else:
+                return jsonify({"bot_response": "Sorry, no rooms available for the given criteria."})
+        except Exception as e:
+            return jsonify({"bot_response": f"Error processing request: {str(e)}"})
+
+    # 3️⃣ General chat response (like ChatGPT)
+    return jsonify({"bot_response": random.choice(general_responses)})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(debug=True)
